@@ -121,6 +121,7 @@ class HIALF:
         :param sequence_info: {i:[product,user,e_rate,rate]}
         :return: None save the model data in the HIALF.model
         """
+        sess = tf.Session()
         k = 5
         sequence_info = self.sequence_info
         User_n = max(self.user_ids)
@@ -208,8 +209,8 @@ class HIALF:
         #     for ele in tf.get_collection(key):
         #         print(ele)
         # with tf.Session() as sess:
-        sess = tf.Session()
-        sess.run(tf.global_variables_initializer())
+
+
         # sess = tf_debug.LocalCLIDebugWrapperSession(sess,ui_type="readline")
         # sess.add_tensor_filter("has_inf_or_nan",tf_debug.has_inf_or_nan)
 
@@ -220,10 +221,20 @@ class HIALF:
         which_user = np.zeros([User_n, 1])
         which_item = np.zeros([Item_n, 1])
         # tf.train.Saver()
-        saver = tf.train.Saver(max_to_keep=5)
+        #saver = tf.train.Saver(max_to_keep=5)
+        ALL_VARS = tf.trainable_variables()
+        save_v = [v for v in ALL_VARS]
+
+
         log_file = open('log.txt', 'w')
         min_loss = 10000
-
+        if os.path.exists('log.txt'):
+            #print('exist')
+            sess.run(tf.global_variables_initializer())
+            get_data = tf.train.import_meta_graph('Model/model-8.meta')
+            get_data.restore(sess, 'Model/model-8')
+            print('successfully reload trained model')
+        saver = tf.train.Saver(save_v)
 
         sequence_key = sequence_info.keys()
         for iter_ in range(iter_cnt):
@@ -258,13 +269,14 @@ class HIALF:
                     which_item[user_product_pair[0] - 1] = 0
                     total_loss += l
                     count += 1
+
                     # print('{}th training loss is {}'.format(count,l))
 
             if iter_ % 2 == 0:
                 log_file.write(str(iter_) + 'loss is :' + str(total_loss) + '\n')
                 if (total_loss / count < min_loss):
                     min_loss = total_loss / count
-                saver.save(sess, 'Model/model', global_step=iter_)
+                saver.save(sess, 'Model/model_2', global_step=iter_)
                 print('\n****************{}th training iterations loss is {}****************'.format(iter_,
                                                                                                      total_loss / (
                                                                                                          float)(count)))
@@ -424,8 +436,8 @@ if __name__ == "__main__":
     else:
         f = open('preprocess.pickle', 'rb')
         HIALF_MODEL.user_ids, HIALF_MODEL.item_ids, HIALF_MODEL.g, HIALF_MODEL.Bu, HIALF_MODEL.Bp, HIALF_MODEL.sequence_info = pickle.load(f)
-    ifTrain = False
-    ifEvaluate = True
+    ifTrain = True
+    ifEvaluate = False
     ifTest = False
 
     if ifTrain:
