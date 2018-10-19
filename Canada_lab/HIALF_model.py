@@ -138,7 +138,6 @@ class HIALF:
 
         bu = tf.Variable(self.Bu, name='bu', dtype='float32', expected_shape=[User_n, 1])
         bp = tf.Variable(self.Bp, name='bp', dtype='float32', expected_shape=[Item_n, 1])
-
         # bu_onehot bp_onehot are placeholder which tells which user and product are used to train
         bu_OneHot = tf.placeholder(dtype='float32', shape=[User_n, 1], name='bu_OneHot')
         bp_OneHot = tf.placeholder(dtype='float32', shape=[Item_n, 1], name='bp_OneHot')
@@ -187,18 +186,20 @@ class HIALF:
         # R_predict = 1.0 / (1.0+tf.exp(-R_predict))
 
         R = tf.placeholder(dtype='float32', shape=[1], name='R')
-        Loss = tf.square(tf.subtract(R, R_predict))
+        Loss = tf.reduce_sum(tf.square(tf.subtract(R, R_predict)))
 
         # add regularized parameters to the loss function
         for key in tf.get_default_graph().get_all_collection_keys():
             if key == 'trainable_variables':
                 for element_v in tf.get_collection(key):
                     # print(element_v)
-                    tf.add_to_collection('losses', tf.contrib.layers.l2_regularizer(0.01)(element_v))
+                    tf.add_to_collection('losses', tf.contrib.layers.l2_regularizer(0.0001)(element_v))
+
 
         tf.add_to_collection('losses', Loss)
+
         regularization_loss = tf.add_n(tf.get_collection('losses'))
-        lr = 0.01
+        lr = 0.005
         lr = tf.Variable(float(lr), trainable=False, dtype='float32')
         lr_decay = lr.assign(lr * 0.9)
         optimizer = tf.train.GradientDescentOptimizer(learning_rate=lr).minimize(regularization_loss)
@@ -259,7 +260,7 @@ class HIALF:
                     which_item[user_product_pair[0] - 1] = 1
                     # print(user_product_pair[3])
                     # print(1.0/(1.0+math.exp(-user_product_pair[3])))
-                    _, l = sess.run([optimizer, Loss],
+                    _, l = sess.run([optimizer, regularization_loss],
                                     feed_dict={bu_OneHot: which_user, bp_OneHot: which_item, size_rating: [i - 1],
                                                e_pi: [user_product_pair[2]], R: [user_product_pair[3]]})
                     # R_truth = 1.0/(1.0+math.exp(-user_product_pair[3]))
@@ -269,8 +270,8 @@ class HIALF:
                     which_item[user_product_pair[0] - 1] = 0
                     total_loss += l
                     count += 1
-
-                    # print('{}th training loss is {}'.format(count,l))
+                    #print('loss is{}'.format(l))
+                print('training loss is {}'.format(total_loss/count))
 
             if iter_ % 2 == 0:
                 log_file.write(str(iter_) + 'loss is :' + str(total_loss) + '\n')
